@@ -79,6 +79,8 @@ void loop() {
       clicked = false;
       was_moved = false;
     } else {  // touching
+
+
       delta_x = Touch_CTS816.x_point - old_x;
       delta_y = Touch_CTS816.y_point - old_y;
       // Serial.print(delta_x);
@@ -93,6 +95,7 @@ void loop() {
     old_y = Touch_CTS816.y_point;
     touch_flag = false;
     old_time_touch = time_touch;
+    Serial.println("");
   } else {                                               // no touch flag
     if (millis() - old_time_touch >= 20) {               // at least one cycle untouched.
       if (millis() - time_first_touch <= click_speed) {  // if tap within click speed
@@ -106,11 +109,13 @@ void loop() {
       }
     }
   }
+  Serial.print("Fingers: ");
+  Serial.println(CST816S_Get_Fingers());
   DEV_Delay_us(1000);
 }
 
 
-    /*TODO:
+/*TODO:
     - Some coasting when the last move value was high and keep that direction and slowly decelerate until touched again.
     - Two finger detection and scroll (with coasting too)
     - Two finger right click
