@@ -2,6 +2,7 @@
 #include <Mouse.h>
 
 #define DARK_GRAY 0x18E3
+
 void Touch_INT_callback();
 bool touch_flag = false;
 unsigned int time_touch = 0;
@@ -11,13 +12,36 @@ unsigned int time_first_touch = 0;
 uint16_t old_x, old_y;
 float mouse_speed = 1;
 unsigned int click_speed = 90;
-int delta_x = 0;
-int delta_y = 0;
+// signed char delta_x = 0;
+// signed char delta_y = 0;
 int coasting_percent = 70;
 bool clicked = false;
 bool was_moved = false;
 UWORD *BlackImage;
 UDOUBLE Imagesize = LCD_1IN28_HEIGHT * LCD_1IN28_WIDTH * 2;
+
+const int touchpad_radius = 120;  // Radius of the circular touchpad
+const int scrolling_edge = 10;    // Width of the scrolling edge
+const int scroll_segments = 50;
+bool scrolling = false;
+float angle = 0;
+int detent = 0;
+int old_detent = 0;
+
+void get_scroll_angle(void) {
+  // Scroll based on circular motion within the scrolling edge
+  float angle_rad = atan2(Touch_CTS816.y_point - 120, Touch_CTS816.x_point - 120);  // Calculate angle in radians
+
+  // Convert radians to degrees
+  // float angle_deg = angle_rad * 180.0 / M_PI;
+
+  // Ensure angle is in the range [0, 360)
+  if (angle_rad < 0) {
+    angle_rad += 2 * M_PI;
+  }
+  // detent = angle_rad;
+  detent = map(angle_rad * 1000, 0, 2 * M_PI * 1000, 0, scroll_segments);
+}
 
 void setup() {
   if (DEV_Module_Init() != 0)
@@ -27,7 +51,7 @@ void setup() {
     LCD_1IN28_Init(HORIZONTAL);
   DEV_SET_PWM(0);
   LCD_1IN28_Clear(WHITE);
-  DEV_SET_PWM(100);
+  DEV_SET_PWM(20);
   if ((BlackImage = (UWORD *)malloc(Imagesize)) == NULL) {
     Serial.println("Failed to apply for black memory...");
     exit(0);
@@ -37,70 +61,88 @@ void setup() {
   Paint_Clear(WHITE);
   Paint_SetRotate(ROTATE_0);
   Paint_Clear(WHITE);
+
   // QMI8658_init();
+
   CST816S_init(CST816S_Point_Mode);
   DEV_KEY_Config(Touch_INT_PIN);
-  while (!digitalRead(Touch_INT_PIN)) {
-    Serial.println("stop touching!");
-  }
   attachInterrupt(Touch_INT_PIN, &Touch_INT_callback, RISING);
-  // Serial.println("QMI8658_init\r\n");
-  DEV_SET_PWM(50);
+  DEV_SET_PWM(20);
   Mouse.begin();
 
-
   LCD_1IN28_Display(BlackImage);
-
-
-  Paint_Clear(DARK_GRAY);
-  // Paint_DrawRectangle(0, 00, 240, 47, 0X2595, DOT_PIXEL_2X2, DRAW_FILL_FULL);
-  Paint_DrawString_EN(56, 25, "- touchpad -", &Font16, WHITE, WHITE);
+  Paint_Clear(BLACK);
+  Paint_DrawCircle(120, 120, 120 - 10, DARK_GRAY, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
   LCD_1IN28_Display(BlackImage);
   old_time = millis();
+  // Serial.print("Setup done.");
 }
 
 void loop() {
-  // if (millis() - old_time >= 1000) {  // heartbeat <3
-  //   Serial.print(" - - - ");
-  //   Serial.print(millis() / 1000);
-  //   Serial.println(" - - - ");
-  //   old_time = millis();
-  // }
-
   if (touch_flag) {  // touch event detected
-    // Serial.print(clicked);
-    // Serial.print(was_moved);
-    // Serial.print(" | ");
     time_touch = millis();
     unsigned int delta_time_touch = time_touch - old_time_touch;
     CST816S_Get_Point();
-    if (delta_time_touch >= 20) {  // first touch
+    int distance_from_center = sqrt(sq(120 - Touch_CTS816.x_point) + sq(120 - Touch_CTS816.y_point));
+
+    // first touch event
+    if (delta_time_touch >= 20) {
       time_first_touch = time_touch;
       clicked = false;
       was_moved = false;
+      // check if tapped on scroll area
+      if (distance_from_center >= touchpad_radius - scrolling_edge) {
+        scrolling = true;
+        Serial.println("Scrolling started ");
+        get_scroll_angle();
+        old_detent = detent;
+      } else {
+        scrolling = false;
+      }
     } else {  // touching
 
+      if (scrolling) {  //checks if in scrolling mode
+        get_scroll_angle();
+        signed char scroll_value = ((old_detent) - (detent));
+        if (scroll_value != 0) {
+          if (scroll_value >= scroll_segments - 1) {
+            scroll_value = scroll_value - scroll_segments;
+          } else if (scroll_value <= 1 - scroll_segments) {
+            scroll_value = scroll_value + scroll_segments;
+          }
+          Serial.print(scroll_value);
+          Serial.print(" Scrolling... ");
+          Serial.println();
 
-      delta_x = Touch_CTS816.x_point - old_x;
-      delta_y = Touch_CTS816.y_point - old_y;
-      // Serial.print(delta_x);
-      // Serial.print(" | ");
-      // Serial.println(delta_y);
-      if (delta_x || delta_y) {  // moving
-        was_moved = true;
-        Mouse.move(delta_x * mouse_speed, delta_y * mouse_speed, 0);
+          Mouse.move(0, 0, scroll_value);
+        }
+        old_detent = detent;
+      } else {  // mouse move
+
+
+        signed char delta_x = Touch_CTS816.x_point - old_x;
+        signed char delta_y = Touch_CTS816.y_point - old_y;
+
+        if (delta_x || delta_y) {
+          Serial.print(Touch_CTS816.x_point);
+          Serial.print(" | ");
+          Serial.print(Touch_CTS816.y_point);
+          Serial.print(" moving...");
+          was_moved = true;
+          Mouse.move(delta_x * mouse_speed, delta_y * mouse_speed, 0);
+        }
+        Serial.println();
       }
     }
     old_x = Touch_CTS816.x_point;
     old_y = Touch_CTS816.y_point;
     touch_flag = false;
     old_time_touch = time_touch;
-    Serial.println("");
   } else {                                               // no touch flag
     if (millis() - old_time_touch >= 20) {               // at least one cycle untouched.
       if (millis() - time_first_touch <= click_speed) {  // if tap within click speed
         if (!was_moved && !clicked) {
-          // Serial.println("CLICK!");
+          Serial.println("CLICK!");
           Mouse.press(MOUSE_LEFT);
           delay(10);
           Mouse.release(MOUSE_LEFT);
@@ -109,22 +151,8 @@ void loop() {
       }
     }
   }
-  Serial.print("Fingers: ");
-  Serial.println(CST816S_Get_Fingers());
   DEV_Delay_us(1000);
 }
-
-
-/*TODO:
-    - Some coasting when the last move value was high and keep that direction and slowly decelerate until touched again.
-    - Two finger detection and scroll (with coasting too)
-    - Two finger right click
-    - Tap and hold / drag
-    - For later: Screen animation matching the movements? Maybe use second core for this so it doesn't slow the mouse?
-      (maybe dragging a retro pink grid or dots to save sprite size to simulate a ball rolling, maybe useful for the coasting)
-    */
-
-
 
 void Touch_INT_callback() {
   touch_flag = true;
