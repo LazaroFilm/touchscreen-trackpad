@@ -11,7 +11,7 @@ unsigned int old_time = 0;
 unsigned int time_first_touch = 0;
 uint16_t old_x, old_y;
 float mouse_speed = 1;
-unsigned int click_speed = 90;
+unsigned int click_speed = 95;
 // signed char delta_x = 0;
 // signed char delta_y = 0;
 int coasting_percent = 70;
@@ -44,11 +44,11 @@ void get_scroll_angle(void) {
 }
 
 void setup() {
-  if (DEV_Module_Init() != 0)
+  if (DEV_Module_Init() != 0) {
     Serial.println("GPIO Init Fail!");
-  else
-    // Serial.println("GPIO Init successful!");
-    LCD_1IN28_Init(HORIZONTAL);
+  }
+  // Serial.println("GPIO Init successful!");
+  LCD_1IN28_Init(HORIZONTAL);
   DEV_SET_PWM(0);
   LCD_1IN28_Clear(WHITE);
   DEV_SET_PWM(20);
@@ -128,10 +128,10 @@ void loop() {
           Serial.print(" | ");
           Serial.print(Touch_CTS816.y_point);
           Serial.print(" moving...");
+          Serial.println();
           was_moved = true;
           Mouse.move(delta_x * mouse_speed, delta_y * mouse_speed, 0);
         }
-        Serial.println();
       }
     }
     old_x = Touch_CTS816.x_point;
