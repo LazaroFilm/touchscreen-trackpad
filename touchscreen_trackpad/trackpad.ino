@@ -5,7 +5,7 @@ void first_touch(int distance_from_center) {
   coast = false;
   if (distance_from_center >= touchpad_radius - scrolling_edge) {  // check if tapped on scroll area
     if (DEBUG_CONSOLE) {
-      Serial.println("Scrolling started ");
+      Serial.println("Scrolling started...");
     }
     get_scroll_angle();
     old_detent = detent;
@@ -17,21 +17,24 @@ void first_touch(int distance_from_center) {
 
 void scrolling(void) {
   get_scroll_angle();
-  signed char scroll_value = ((old_detent) - (detent));
-  if (scroll_value != 0) {
-    if (scroll_value >= scroll_segments - 1) {
-      scroll_value = scroll_value - scroll_segments;
-    } else if (scroll_value <= 1 - scroll_segments) {
-      scroll_value = scroll_value + scroll_segments;
+  if (!in_dead_zone) {
+    if (detent - old_detent == 1) {
+      Mouse.move(0, 0, -1);
+    } else if (detent - old_detent == -1) {
+      Mouse.move(0, 0, 1);
+    } else if (old_detent == scroll_segments - 1 && detent == 0) {
+      Mouse.move(0, 0, -1);
+    } else if (detent == scroll_segments - 1 && old_detent == 0) {
+      Mouse.move(0, 0, 1);
     }
-    if (DEBUG_CONSOLE) {
-      Serial.print(scroll_value);
+    if (DEBUG_CONSOLE && detent != old_detent) {
+      Serial.print(detent);
       Serial.print(" Scrolling... ");
       Serial.println();
     }
-    Mouse.move(0, 0, scroll_value);
   }
   old_detent = detent;
+  in_dead_zone = false;
 }
 
 void mouse_move(void) {
@@ -39,11 +42,10 @@ void mouse_move(void) {
   signed char delta_y = Touch_CTS816.y_point - old_y;
   if (delta_x || delta_y) {
     if (DEBUG_CONSOLE) {
-      Serial.print("touch: ");
       Serial.print(Touch_CTS816.x_point);
       Serial.print(" | ");
       Serial.print(Touch_CTS816.y_point);
-      Serial.print(" | delta: ");
+      Serial.print(" || ");
       Serial.print(delta_x);
       Serial.print(" | ");
       Serial.print(delta_y);

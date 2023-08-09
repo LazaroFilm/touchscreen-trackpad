@@ -14,8 +14,6 @@ unsigned int time_first_touch = 0;
 uint16_t old_x, old_y;
 float mouse_speed = 1;
 unsigned int click_speed = 95;
-// signed char delta_x = 0;
-// signed char delta_y = 0;
 int coasting_percent = 70;
 bool clicked = false;
 bool was_moved = false;
@@ -24,14 +22,15 @@ UWORD *BlackImage;
 UDOUBLE Imagesize = LCD_1IN28_HEIGHT * LCD_1IN28_WIDTH * 2;
 
 const int touchpad_radius = 120;  // Radius of the circular touchpad
-const int scrolling_edge = 15;    // Width of the scrolling edge
+const int scrolling_edge = 10;    // Width of the scrolling edge
 const int scrolling_deadzone = 60;
-const int scroll_segments = 50;
+const int scroll_segments = 45;
 const int coast_speed = 10;
 const float coasting_ratio = 0.99;
 float coast_delta_x = 0;
 float coast_delta_y = 0;
 bool is_scrolling = false;
+bool in_dead_zone = false;
 float angle = 0;
 int detent = 0;
 int old_detent = 0;
@@ -102,6 +101,8 @@ void loop() {
     } else {
       if (is_scrolling && distance_from_center >= touchpad_radius - scrolling_deadzone) {  //checks if in scrolling mode and not too close to the center
         scrolling();
+      } else if (is_scrolling) { // in the dead zone
+        in_dead_zone = true;
       } else if (!is_scrolling) {  // mouse move
         mouse_move();
       }
