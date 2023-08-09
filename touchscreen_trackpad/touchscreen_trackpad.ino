@@ -3,6 +3,8 @@
 
 #define DARK_GRAY 0x18E3
 
+#define DEBUG_CONSOLE true  // also edit in DEC_Config.cpp
+
 void Touch_INT_callback();
 bool touch_flag = false;
 unsigned int time_touch = 0;
@@ -17,13 +19,19 @@ unsigned int click_speed = 95;
 int coasting_percent = 70;
 bool clicked = false;
 bool was_moved = false;
+bool coast = false;
 UWORD *BlackImage;
 UDOUBLE Imagesize = LCD_1IN28_HEIGHT * LCD_1IN28_WIDTH * 2;
 
 const int touchpad_radius = 120;  // Radius of the circular touchpad
-const int scrolling_edge = 10;    // Width of the scrolling edge
+const int scrolling_edge = 15;    // Width of the scrolling edge
+const int scrolling_deadzone = 60;
 const int scroll_segments = 50;
-bool scrolling = false;
+const int coast_speed = 10;
+const float coasting_ratio = 0.99;
+float coast_delta_x = 0;
+float coast_delta_y = 0;
+bool is_scrolling = false;
 float angle = 0;
 int detent = 0;
 int old_detent = 0;
@@ -45,7 +53,9 @@ void get_scroll_angle(void) {
 
 void setup() {
   if (DEV_Module_Init() != 0) {
-    Serial.println("GPIO Init Fail!");
+    if (DEBUG_CONSOLE) {
+      Serial.println("GPIO Init Fail!");
+    }
   }
   // Serial.println("GPIO Init successful!");
   LCD_1IN28_Init(HORIZONTAL);
@@ -53,7 +63,9 @@ void setup() {
   LCD_1IN28_Clear(WHITE);
   DEV_SET_PWM(20);
   if ((BlackImage = (UWORD *)malloc(Imagesize)) == NULL) {
-    Serial.println("Failed to apply for black memory...");
+    if (DEBUG_CONSOLE) {
+      Serial.println("Failed to apply for black memory...");
+    }
     exit(0);
   }
   Paint_NewImage((UBYTE *)BlackImage, LCD_1IN28.WIDTH, LCD_1IN28.HEIGHT, 0, WHITE);
@@ -72,7 +84,8 @@ void setup() {
 
   LCD_1IN28_Display(BlackImage);
   Paint_Clear(BLACK);
-  Paint_DrawCircle(120, 120, 120 - 10, DARK_GRAY, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
+  Paint_DrawCircle(120, 120, touchpad_radius - scrolling_edge, DARK_GRAY, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
+  Paint_DrawCircle(120, 120, touchpad_radius - scrolling_deadzone, DARK_GRAY, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
   LCD_1IN28_Display(BlackImage);
   old_time = millis();
   // Serial.print("Setup done.");
@@ -84,70 +97,31 @@ void loop() {
     unsigned int delta_time_touch = time_touch - old_time_touch;
     CST816S_Get_Point();
     int distance_from_center = sqrt(sq(120 - Touch_CTS816.x_point) + sq(120 - Touch_CTS816.y_point));
-
-    // first touch event
     if (delta_time_touch >= 20) {
-      time_first_touch = time_touch;
-      clicked = false;
-      was_moved = false;
-      // check if tapped on scroll area
-      if (distance_from_center >= touchpad_radius - scrolling_edge) {
-        scrolling = true;
-        Serial.println("Scrolling started ");
-        get_scroll_angle();
-        old_detent = detent;
-      } else {
-        scrolling = false;
-      }
-    } else {  // touching
-
-      if (scrolling) {  //checks if in scrolling mode
-        get_scroll_angle();
-        signed char scroll_value = ((old_detent) - (detent));
-        if (scroll_value != 0) {
-          if (scroll_value >= scroll_segments - 1) {
-            scroll_value = scroll_value - scroll_segments;
-          } else if (scroll_value <= 1 - scroll_segments) {
-            scroll_value = scroll_value + scroll_segments;
-          }
-          Serial.print(scroll_value);
-          Serial.print(" Scrolling... ");
-          Serial.println();
-
-          Mouse.move(0, 0, scroll_value);
-        }
-        old_detent = detent;
-      } else {  // mouse move
-
-
-        signed char delta_x = Touch_CTS816.x_point - old_x;
-        signed char delta_y = Touch_CTS816.y_point - old_y;
-
-        if (delta_x || delta_y) {
-          Serial.print(Touch_CTS816.x_point);
-          Serial.print(" | ");
-          Serial.print(Touch_CTS816.y_point);
-          Serial.print(" moving...");
-          Serial.println();
-          was_moved = true;
-          Mouse.move(delta_x * mouse_speed, delta_y * mouse_speed, 0);
-        }
+      first_touch(distance_from_center);
+    } else {
+      if (is_scrolling && distance_from_center >= touchpad_radius - scrolling_deadzone) {  //checks if in scrolling mode and not too close to the center
+        scrolling();
+      } else if (!is_scrolling) {  // mouse move
+        mouse_move();
       }
     }
     old_x = Touch_CTS816.x_point;
     old_y = Touch_CTS816.y_point;
     touch_flag = false;
     old_time_touch = time_touch;
-  } else {                                               // no touch flag
-    if (millis() - old_time_touch >= 20) {               // at least one cycle untouched.
-      if (millis() - time_first_touch <= click_speed) {  // if tap within click speed
-        if (!was_moved && !clicked) {
+  } else {  // no touch flag
+    if (coast) {
+      coasting();
+    } else if (millis() - old_time_touch >= 20 && millis() - time_first_touch <= click_speed) {  // at least one cycle untouched & if tap within click speed
+      if (!was_moved && !clicked) {
+        if (DEBUG_CONSOLE) {
           Serial.println("CLICK!");
-          Mouse.press(MOUSE_LEFT);
-          delay(10);
-          Mouse.release(MOUSE_LEFT);
-          clicked = true;
         }
+        Mouse.press(MOUSE_LEFT);
+        delay(10);
+        Mouse.release(MOUSE_LEFT);
+        clicked = true;
       }
     }
   }

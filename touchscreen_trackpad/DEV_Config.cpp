@@ -27,6 +27,8 @@
 # THE SOFTWARE.
 ******************************************************************************/
 #include "DEV_Config.h"
+#define DEBUG_CONSOLE true
+
 
 uint slice_num;
 
@@ -191,24 +193,26 @@ parameter:
 Info:
 ******************************************************************************/
 uint8_t DEV_Module_Init(void) {
-  
-  Serial.begin(115200);
-  unsigned long time_begin = millis();
-  while (!Serial && (millis() - time_begin) < 3000) {
+
+  if (DEBUG_CONSOLE) {
+    Serial.begin(115200);
+    unsigned long time_begin = millis();
+    while (!Serial && (millis() - time_begin) < 3000) {
+      delay(10);
+      // Serial.println(millis() - time_begin);
+    }
     delay(10);
-    // Serial.println(millis() - time_begin);
+    Serial.println(" ");
+    Serial.println("       ::::::::   :::::::::::       :::        :::::::::   ::::::::::: ");
+    Serial.println("     :+:    :+:      :+:         :+: :+:      :+:    :+:      :+:      ");
+    Serial.println("    +:+             +:+        +:+   +:+     +:+    +:+      +:+       ");
+    Serial.println("   +#++:++#++      +#+       +#++:++#++:    +#++:++#:       +#+        ");
+    Serial.println("         +#+      +#+       +#+     +#+    +#+    +#+      +#+         ");
+    Serial.println(" #+#    #+#      #+#       #+#     #+#    #+#    #+#      #+#          ");
+    Serial.println(" ########       ###       ###     ###    ###    ###      ###           ");
+    Serial.println(" ");
+    Serial.println(" ");
   }
-  delay(10);
-  Serial.println(" ");
-  Serial.println("       ::::::::   :::::::::::       :::        :::::::::   ::::::::::: ");
-  Serial.println("     :+:    :+:      :+:         :+: :+:      :+:    :+:      :+:      ");
-  Serial.println("    +:+             +:+        +:+   +:+     +:+    +:+      +:+       ");
-  Serial.println("   +#++:++#++      +#+       +#++:++#++:    +#++:++#:       +#+        ");
-  Serial.println("         +#+      +#+       +#+     +#+    +#+    +#+      +#+         ");
-  Serial.println(" #+#    #+#      #+#       #+#     #+#    #+#    #+#      #+#          ");
-  Serial.println(" ########       ###       ###     ###    ###    ###      ###           ");
-  Serial.println(" ");
-  Serial.println(" ");
 
   // GPIO Config
   DEV_GPIO_Init();
@@ -226,7 +230,10 @@ uint8_t DEV_Module_Init(void) {
   Wire1.setSCL(DEV_SCL_PIN);
   Wire1.setClock(400000);
   Wire1.begin();
-  printf("DEV_Module_Init OK \r\n");
+  if (DEBUG_CONSOLE) {
+    printf("DEV_Module_Init OK \r\n");
+  }
+
   return 0;
 }
 
