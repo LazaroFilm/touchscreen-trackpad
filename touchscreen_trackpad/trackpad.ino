@@ -19,13 +19,13 @@ void scrolling(void) {
   get_scroll_angle();
   if (!in_dead_zone) {
     if (detent - old_detent == 1) {
-      Mouse.move(0, 0, -1);
+      Mouse.move(0, 0, 1);
     } else if (detent - old_detent == -1) {
-      Mouse.move(0, 0, 1);
-    } else if (old_detent == scroll_segments - 1 && detent == 0) {
       Mouse.move(0, 0, -1);
-    } else if (detent == scroll_segments - 1 && old_detent == 0) {
+    } else if (old_detent == scroll_segments - 1 && detent == 0) {
       Mouse.move(0, 0, 1);
+    } else if (detent == scroll_segments - 1 && old_detent == 0) {
+      Mouse.move(0, 0, -1);
     }
     if (DEBUG_CONSOLE && detent != old_detent) {
       Serial.print(detent);
@@ -68,11 +68,13 @@ void coasting(void) {
   while (coast && !touch_flag) {
     coast_delta_x *= coasting_ratio;
     coast_delta_y *= coasting_ratio;
-    Mouse.move(coast_delta_x * mouse_speed, coast_delta_y * mouse_speed, 0);
+    signed char delta_x = coast_delta_x;
+    signed char delta_y = coast_delta_y;
+    Mouse.move(delta_x * mouse_speed, delta_y * mouse_speed, 0);
     if (DEBUG_CONSOLE) {
-      Serial.print(coast_delta_x);
+      Serial.print(delta_x);
       Serial.print(" | ");
-      Serial.print(coast_delta_x);
+      Serial.print(delta_x);
       Serial.println(" coasting...");
     }
     if (abs(coast_delta_x) < 1 && abs(coast_delta_y) < 1) {  // if coasting is over

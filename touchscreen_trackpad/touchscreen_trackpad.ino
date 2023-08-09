@@ -26,7 +26,7 @@ const int scrolling_edge = 10;    // Width of the scrolling edge
 const int scrolling_deadzone = 60;
 const int scroll_segments = 45;
 const int coast_speed = 10;
-const float coasting_ratio = 0.99;
+const float coasting_ratio = 0.998;
 float coast_delta_x = 0;
 float coast_delta_y = 0;
 bool is_scrolling = false;
@@ -60,7 +60,6 @@ void setup() {
   LCD_1IN28_Init(HORIZONTAL);
   DEV_SET_PWM(0);
   LCD_1IN28_Clear(WHITE);
-  DEV_SET_PWM(20);
   if ((BlackImage = (UWORD *)malloc(Imagesize)) == NULL) {
     if (DEBUG_CONSOLE) {
       Serial.println("Failed to apply for black memory...");
@@ -78,7 +77,6 @@ void setup() {
   CST816S_init(CST816S_Point_Mode);
   DEV_KEY_Config(Touch_INT_PIN);
   attachInterrupt(Touch_INT_PIN, &Touch_INT_callback, RISING);
-  DEV_SET_PWM(20);
   Mouse.begin();
 
   LCD_1IN28_Display(BlackImage);
@@ -86,6 +84,8 @@ void setup() {
   Paint_DrawCircle(120, 120, touchpad_radius - scrolling_edge, DARK_GRAY, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
   Paint_DrawCircle(120, 120, touchpad_radius - scrolling_deadzone, DARK_GRAY, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
   LCD_1IN28_Display(BlackImage);
+  delay(10);
+  DEV_SET_PWM(20);
   old_time = millis();
   // Serial.print("Setup done.");
 }
@@ -101,7 +101,7 @@ void loop() {
     } else {
       if (is_scrolling && distance_from_center >= touchpad_radius - scrolling_deadzone) {  //checks if in scrolling mode and not too close to the center
         scrolling();
-      } else if (is_scrolling) { // in the dead zone
+      } else if (is_scrolling) {  // in the dead zone
         in_dead_zone = true;
       } else if (!is_scrolling) {  // mouse move
         mouse_move();
